@@ -46,3 +46,22 @@ wp-config.php
 # Note: If you wish to whitelist themes,
 # uncomment the next line
 #/wp-content/themes
+
+# Composer
+/vendor/
+composer.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# Testing
+/tests/coverage/
+.phpunit.result.cache
+
+# Node (if using build tools in future)
+node_modules/
+npm-debug.log
