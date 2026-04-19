@@ -1,0 +1,52 @@
+name: Release package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+jobs:
+  package:
+    name: Build plugin release package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v4
+        with:
+          php-version: '8.1'
+          extension: mbstring
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist
+
+      - name: Build plugin package
+        run: |
+          PACKAGE_NAME="Herzenssache-UltimateMember-Extension"
+          OUTPUT_FILE="${PACKAGE_NAME}.zip"
+          rm -f "$OUTPUT_FILE"
+          git archive --format zip --prefix="${PACKAGE_NAME}/" HEAD -o "$OUTPUT_FILE"
+          ls -lh "$OUTPUT_FILE"
+
+      - name: Upload package artifact for manual runs
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v3
+        with:
+          name: Herzenssache-UltimateMember-Extension-package
+          path: Herzenssache-UltimateMember-Extension.zip
+
+      - name: Upload package to GitHub release
+        if: github.event_name == 'release'
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: Herzenssache-UltimateMember-Extension.zip
+          asset_name: Herzenssache-UltimateMember-Extension-${{ github.event.release.tag_name }}.zip
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
