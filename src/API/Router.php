@@ -85,6 +85,14 @@ class Router {
 			return get_current_user_id();
 		}
 
+		// Try manual cookie validation as fallback
+		if ( defined( 'LOGGED_IN_COOKIE' ) && isset( $_COOKIE[LOGGED_IN_COOKIE] ) ) {
+			$user_id = wp_validate_auth_cookie( $_COOKIE[LOGGED_IN_COOKIE], 'logged_in' );
+			if ( $user_id ) {
+				return $user_id;
+			}
+		}
+
 		return false;
 	}
 

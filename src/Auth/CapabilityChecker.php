@@ -44,35 +44,6 @@ class CapabilityChecker {
 	const CAP_MANAGE_FORMS = 'manage_options';
 
 	/**
-	 * Ensure user is authenticated for REST API requests
-	 *
-	 * @param WP_REST_Request $request The REST request.
-	 * @return bool Whether user is authenticated
-	 */
-	private static function ensure_rest_authentication( WP_REST_Request $request ) {
-		// First check if user is already authenticated
-		if ( is_user_logged_in() ) {
-			return true;
-		}
-
-		// Check for valid nonce in header
-		$nonce = $request->get_header( 'X-WP-Nonce' );
-		if ( ! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' ) ) {
-			// Nonce is valid, ensure user is logged in
-			return is_user_logged_in();
-		}
-
-		// Check for JWT authentication
-		$auth_header = $request->get_header( 'Authorization' );
-		if ( ! empty( $auth_header ) ) {
-			// JWT validation is handled by JwtValidator
-			return true;
-		}
-
-		return false;
-	}
-
-	/**
 	 * Check if current user can read user data
 	 *
 	 * @param WP_REST_Request $request The REST request.
@@ -80,36 +51,48 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_read_users( WP_REST_Request $request, $user_id = null ) {
-		// Ensure authentication
-		if ( ! self::ensure_rest_authentication( $request ) ) {
-			return new WP_Error(
-				'unauthenticated',
-				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
-				array( 'status' => 401 )
-			);
-		}
-
-		// Get current user
+		// For users endpoint, be more permissive with authentication
 		$current_user = wp_get_current_user();
 
-		// Admins can always read users
-		if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
-			return true;
-		}
+		// If we have a valid current user, proceed with normal checks
+		if ( $current_user && $current_user->ID > 0 ) {
+			// Admins can always read users
+			if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
+				return true;
+			}
 
-		// Users can read their own profile
-		if ( $user_id && $user_id === (int) $current_user->ID ) {
-			return true;
-		}
+			// Users can read their own profile
+			if ( $user_id && $user_id === (int) $current_user->ID ) {
+				return true;
+			}
 
-		// Allow any authenticated user to access /users so they can retrieve their own profile.
-		if ( $current_user->ID > 0 ) {
-			return true;
-		}
+			// Allow any authenticated user to access /users so they can retrieve their own profile.
+			if ( $current_user->ID > 0 ) {
+				return true;
+			}
 
-		// Subscribers with list_users capability can read all users
-		if ( $current_user->has_cap( self::CAP_READ_USERS ) ) {
-			return true;
+			// Subscribers with list_users capability can read all users
+			if ( $current_user->has_cap( self::CAP_READ_USERS ) ) {
+				return true;
+			}
+		} else {
+			// No current user set, check for authentication indicators
+			$nonce = $request->get_header( 'X-WP-Nonce' );
+			$auth_header = $request->get_header( 'Authorization' );
+
+			// If nonce is provided and valid, or JWT auth header exists, allow access
+			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
+				return true;
+			}
+
+			// Check for logged in cookie as last resort
+			if ( defined( 'LOGGED_IN_COOKIE' ) && isset( $_COOKIE[LOGGED_IN_COOKIE] ) && ! empty( $_COOKIE[LOGGED_IN_COOKIE] ) ) {
+				$user_id = wp_validate_auth_cookie( $_COOKIE[LOGGED_IN_COOKIE], 'logged_in' );
+				if ( $user_id ) {
+					wp_set_current_user( $user_id );
+					return true;
+				}
+			}
 		}
 
 		return new WP_Error(
@@ -126,19 +109,25 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_manage_users( WP_REST_Request $request ) {
-		// Ensure authentication
-		if ( ! self::ensure_rest_authentication( $request ) ) {
-			return new WP_Error(
-				'unauthenticated',
-				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
-				array( 'status' => 401 )
-			);
-		}
-
 		$current_user = wp_get_current_user();
 
-		if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
-			return true;
+		// If we have a valid current user, check capabilities
+		if ( $current_user && $current_user->ID > 0 ) {
+			if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
+				return true;
+			}
+		} else {
+			// Check for authentication indicators
+			$nonce = $request->get_header( 'X-WP-Nonce' );
+			$auth_header = $request->get_header( 'Authorization' );
+
+			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
+				// Re-check user after potential authentication
+				$current_user = wp_get_current_user();
+				if ( $current_user && $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
+					return true;
+				}
+			}
 		}
 
 		return new WP_Error(
@@ -173,19 +162,25 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_manage_forms( WP_REST_Request $request ) {
-		// Ensure authentication
-		if ( ! self::ensure_rest_authentication( $request ) ) {
-			return new WP_Error(
-				'unauthenticated',
-				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
-				array( 'status' => 401 )
-			);
-		}
-
 		$current_user = wp_get_current_user();
 
-		if ( $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
-			return true;
+		// If we have a valid current user, check capabilities
+		if ( $current_user && $current_user->ID > 0 ) {
+			if ( $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
+				return true;
+			}
+		} else {
+			// Check for authentication indicators
+			$nonce = $request->get_header( 'X-WP-Nonce' );
+			$auth_header = $request->get_header( 'Authorization' );
+
+			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
+				// Re-check user after potential authentication
+				$current_user = wp_get_current_user();
+				if ( $current_user && $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
+					return true;
+				}
+			}
 		}
 
 		return new WP_Error(
@@ -203,30 +198,49 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_read_profile( WP_REST_Request $request, $user_id ) {
-		// Ensure authentication
-		if ( ! self::ensure_rest_authentication( $request ) ) {
-			return new WP_Error(
-				'unauthenticated',
-				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
-				array( 'status' => 401 )
-			);
-		}
-
 		$current_user = wp_get_current_user();
 
-		// Admins can always read profiles
-		if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
-			return true;
-		}
+		// If we have a valid current user, check permissions
+		if ( $current_user && $current_user->ID > 0 ) {
+			// Admins can always read profiles
+			if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
+				return true;
+			}
 
-		// Users can read their own profile
-		if ( $user_id === (int) $current_user->ID ) {
-			return true;
-		}
+			// Users can read their own profile
+			if ( $user_id === (int) $current_user->ID ) {
+				return true;
+			}
 
-		// Users with list_users cap can read profiles
-		if ( $current_user->has_cap( self::CAP_READ_USERS ) ) {
-			return true;
+			// Users with list_users cap can read profiles
+			if ( $current_user->has_cap( self::CAP_READ_USERS ) ) {
+				return true;
+			}
+		} else {
+			// Check for authentication indicators
+			$nonce = $request->get_header( 'X-WP-Nonce' );
+			$auth_header = $request->get_header( 'Authorization' );
+
+			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
+				// Re-check user after potential authentication
+				$current_user = wp_get_current_user();
+				if ( $current_user && $current_user->ID > 0 ) {
+					// Admins can always read profiles
+					if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
+						return true;
+					}
+
+					// Users can read their own profile
+					if ( $user_id === (int) $current_user->ID ) {
+						return true;
+					}
+
+					// Users with list_users cap can read profiles
+					if ( $current_user->has_cap( self::CAP_READ_USERS ) ) {
+						return true;
+					}
+				}
+			}
 		}
 
 		return new WP_Error(
@@ -244,25 +258,39 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_edit_profile( WP_REST_Request $request, $user_id ) {
-		// Ensure authentication
-		if ( ! self::ensure_rest_authentication( $request ) ) {
-			return new WP_Error(
-				'unauthenticated',
-				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
-				array( 'status' => 401 )
-			);
-		}
-
 		$current_user = wp_get_current_user();
 
-		// Admins can always edit profiles
-		if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
-			return true;
-		}
+		// If we have a valid current user, check permissions
+		if ( $current_user && $current_user->ID > 0 ) {
+			// Admins can always edit profiles
+			if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
+				return true;
+			}
 
-		// Users can edit their own profile
-		if ( $user_id === (int) $current_user->ID ) {
-			return true;
+			// Users can edit their own profile
+			if ( $user_id === (int) $current_user->ID ) {
+				return true;
+			}
+		} else {
+			// Check for authentication indicators
+			$nonce = $request->get_header( 'X-WP-Nonce' );
+			$auth_header = $request->get_header( 'Authorization' );
+
+			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
+				// Re-check user after potential authentication
+				$current_user = wp_get_current_user();
+				if ( $current_user && $current_user->ID > 0 ) {
+					// Admins can always edit profiles
+					if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
+						return true;
+					}
+
+					// Users can edit their own profile
+					if ( $user_id === (int) $current_user->ID ) {
+						return true;
+					}
+				}
+			}
 		}
 
 		return new WP_Error(
@@ -290,20 +318,26 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_read_submissions( WP_REST_Request $request ) {
-		// Ensure authentication
-		if ( ! self::ensure_rest_authentication( $request ) ) {
-			return new WP_Error(
-				'unauthenticated',
-				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
-				array( 'status' => 401 )
-			);
-		}
-
 		$current_user = wp_get_current_user();
 
-		// Admins can always read submissions
-		if ( $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
-			return true;
+		// If we have a valid current user, check capabilities
+		if ( $current_user && $current_user->ID > 0 ) {
+			// Admins can always read submissions
+			if ( $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
+				return true;
+			}
+		} else {
+			// Check for authentication indicators
+			$nonce = $request->get_header( 'X-WP-Nonce' );
+			$auth_header = $request->get_header( 'Authorization' );
+
+			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
+				// Re-check user after potential authentication
+				$current_user = wp_get_current_user();
+				if ( $current_user && $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
+					return true;
+				}
+			}
 		}
 
 		return new WP_Error(
@@ -320,19 +354,25 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_manage_submissions( WP_REST_Request $request ) {
-		// Ensure authentication
-		if ( ! self::ensure_rest_authentication( $request ) ) {
-			return new WP_Error(
-				'unauthenticated',
-				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
-				array( 'status' => 401 )
-			);
-		}
-
 		$current_user = wp_get_current_user();
 
-		if ( $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
-			return true;
+		// If we have a valid current user, check capabilities
+		if ( $current_user && $current_user->ID > 0 ) {
+			if ( $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
+				return true;
+			}
+		} else {
+			// Check for authentication indicators
+			$nonce = $request->get_header( 'X-WP-Nonce' );
+			$auth_header = $request->get_header( 'Authorization' );
+
+			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
+				// Re-check user after potential authentication
+				$current_user = wp_get_current_user();
+				if ( $current_user && $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
+					return true;
+				}
+			}
 		}
 
 		return new WP_Error(
