@@ -53,6 +53,9 @@ class Router {
 			return;
 		}
 
+		// Ensure WordPress REST API cookie authentication is enabled
+		add_filter( 'determine_current_user', array( __CLASS__, 'determine_current_user_from_request' ), 10, 1 );
+
 		if ( self::$routes_registered ) {
 			return;
 		}
@@ -66,6 +69,26 @@ class Router {
 		Controllers\NonceController::register_routes();
 
 		self::$routes_registered = true;
+	}
+
+	/**
+	 * Ensure current user is properly determined for REST API requests
+	 *
+	 * @param int|false $user_id Current user ID (from previous filters).
+	 * @return int|false User ID or false
+	 */
+	public static function determine_current_user_from_request( $user_id ) {
+		// If user is already determined, return it
+		if ( false !== $user_id ) {
+			return $user_id;
+		}
+
+		// Try to determine user from WordPress session/cookies
+		if ( is_user_logged_in() ) {
+			return get_current_user_id();
+		}
+
+		return false;
 	}
 
 	/**
