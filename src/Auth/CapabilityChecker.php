@@ -341,9 +341,4 @@ class CapabilityChecker {
 			array( 'status' => 403 )
 		);
 	}
-			'insufficient_permissions',
-			__( 'You do not have permission to manage form submissions', 'herzenssache-um' ),
-			array( 'status' => 403 )
-		);
-	}
 }
