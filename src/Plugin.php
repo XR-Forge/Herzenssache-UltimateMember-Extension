@@ -69,9 +69,16 @@ class Plugin {
 	private function init_rest_api() {
 		// Register REST API routes on the proper REST init hook.
 		// Routes must be registered during rest_api_init, not during plugins_loaded.
-		if ( class_exists( API\Router::class ) ) {
-			add_action( 'rest_api_init', array( API\Router::class, 'register_routes' ) );
+		if ( ! class_exists( API\Router::class ) ) {
+			return;
 		}
+
+		if ( did_action( 'rest_api_init' ) || doing_action( 'rest_api_init' ) ) {
+			API\Router::register_routes();
+			return;
+		}
+
+		add_action( 'rest_api_init', array( API\Router::class, 'register_routes' ) );
 	}
 
 	/**
