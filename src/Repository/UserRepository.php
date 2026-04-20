@@ -300,7 +300,7 @@ class UserRepository {
 			'display_name' => $user->display_name,
 			'first_name' => $user->first_name,
 			'last_name' => $user->last_name,
-			'roles' => array_values( $user->roles ),
+			'roles' => is_array( $user->roles ) ? array_values( $user->roles ) : array(),
 			'status' => $status,
 			'registration_date' => $user->user_registered,
 			'profile_url' => get_author_posts_url( $user->ID ),

@@ -95,7 +95,7 @@ class UserController {
 			}
 
 			// Apply optional query filters to the current user.
-			if ( ! empty( $role ) && ! in_array( sanitize_text_field( $role ), $current_user->roles, true ) ) {
+			if ( ! empty( $role ) && is_array( $current_user->roles ) && ! in_array( sanitize_text_field( $role ), $current_user->roles, true ) ) {
 				return ResponseFormatter::paginated( array(), 0, $pagination['page'], $pagination['per_page'], 'users' );
 			}
 
