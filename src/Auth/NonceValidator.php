@@ -47,8 +47,8 @@ class NonceValidator {
 			);
 		}
 
-		// Verify the nonce
-		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
+		// Accept both plugin-specific and standard WP REST nonce actions.
+		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) && ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
 			return new WP_Error(
 				'invalid_nonce',
 				__( 'Invalid nonce', 'herzenssache-um' ),

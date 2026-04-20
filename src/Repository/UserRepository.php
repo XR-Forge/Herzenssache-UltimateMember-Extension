@@ -291,6 +291,11 @@ class UserRepository {
 	 * @return array Formatted user data
 	 */
 	private static function format_user( WP_User $user ) {
+		// Ensure we have a valid WP_User object
+		if ( ! $user instanceof WP_User || ! $user->ID ) {
+			return array();
+		}
+		
 		$status = get_user_meta( $user->ID, 'um_status', true ) ?: 'active';
 
 		return array(

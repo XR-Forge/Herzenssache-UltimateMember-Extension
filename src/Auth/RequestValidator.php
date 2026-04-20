@@ -155,8 +155,8 @@ class RequestValidator {
 		$per_page = (int) $request->get_param( 'per_page' );
 
 		// Defaults
-		$page = max( 1, $page || 1 );
-		$per_page = max( 1, min( $per_page || 20, 100 ) ); // Max 100 per page
+		$page = max( 1, $page ?: 1 );
+		$per_page = max( 1, min( $per_page ?: 20, 100 ) ); // Max 100 per page
 
 		return array(
 			'page' => $page,

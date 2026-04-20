@@ -58,6 +58,9 @@ class ResponseFormatter {
 	 * @return WP_REST_Response
 	 */
 	public static function paginated( $items, $total, $page, $per_page, $key = 'items' ) {
+		// Ensure per_page is at least 1 to prevent division by zero
+		$per_page = max( 1, (int) $per_page );
+		
 		$response = array(
 			'total' => (int) $total,
 			'page' => (int) $page,

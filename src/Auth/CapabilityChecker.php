@@ -7,6 +7,8 @@
 
 namespace Herzenssache\UltimateMember\Auth;
 
+use Herzenssache\UltimateMember\Auth\JwtValidator;
+use Herzenssache\UltimateMember\Auth\NonceValidator;
 use WP_Error;
 use WP_REST_Request;
 
@@ -44,6 +46,48 @@ class CapabilityChecker {
 	const CAP_MANAGE_FORMS = 'manage_options';
 
 	/**
+	 * Check whether the request contains valid authentication.
+	 *
+	 * @param WP_REST_Request $request The REST request.
+	 * @return bool|WP_Error True if authenticated, WP_Error if invalid, false if unauthenticated.
+	 */
+	private static function validate_authentication( WP_REST_Request $request ) {
+		// Current user already authenticated
+		$current_user = wp_get_current_user();
+		if ( $current_user && $current_user->ID > 0 ) {
+			return true;
+		}
+
+		$nonce = $request->get_header( 'X-WP-Nonce' );
+		if ( ! empty( $nonce ) ) {
+			$nonce_check = NonceValidator::validate( $request );
+			if ( is_wp_error( $nonce_check ) ) {
+				return $nonce_check;
+			}
+			return true;
+		}
+
+		$auth_header = $request->get_header( 'Authorization' );
+		if ( ! empty( $auth_header ) ) {
+			$jwt_check = JwtValidator::validate( $request );
+			if ( is_wp_error( $jwt_check ) ) {
+				return $jwt_check;
+			}
+			return true;
+		}
+
+		if ( defined( 'LOGGED_IN_COOKIE' ) && ! empty( $_COOKIE[LOGGED_IN_COOKIE] ) ) {
+			$user_id = wp_validate_auth_cookie( $_COOKIE[LOGGED_IN_COOKIE], 'logged_in' );
+			if ( $user_id ) {
+				wp_set_current_user( $user_id );
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Check if current user can read user data
 	 *
 	 * @param WP_REST_Request $request The REST request.
@@ -76,22 +120,13 @@ class CapabilityChecker {
 				return true;
 			}
 		} else {
-			// No current user set, check for authentication indicators
-			$nonce = $request->get_header( 'X-WP-Nonce' );
-			$auth_header = $request->get_header( 'Authorization' );
-
-			// If nonce is provided and valid, or JWT auth header exists, allow access
-			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
+			// No current user set, validate the request authentication.
+			$auth_status = self::validate_authentication( $request );
+			if ( true === $auth_status ) {
 				return true;
 			}
-
-			// Check for logged in cookie as last resort
-			if ( defined( 'LOGGED_IN_COOKIE' ) && isset( $_COOKIE[LOGGED_IN_COOKIE] ) && ! empty( $_COOKIE[LOGGED_IN_COOKIE] ) ) {
-				$user_id = wp_validate_auth_cookie( $_COOKIE[LOGGED_IN_COOKIE], 'logged_in' );
-				if ( $user_id ) {
-					wp_set_current_user( $user_id );
-					return true;
-				}
+			if ( is_wp_error( $auth_status ) ) {
+				return $auth_status;
 			}
 		}
 
@@ -117,16 +152,16 @@ class CapabilityChecker {
 				return true;
 			}
 		} else {
-			// Check for authentication indicators
-			$nonce = $request->get_header( 'X-WP-Nonce' );
-			$auth_header = $request->get_header( 'Authorization' );
-
-			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
-				// Re-check user after potential authentication
+			// Check for authentication indicators.
+			$auth_status = self::validate_authentication( $request );
+			if ( true === $auth_status ) {
 				$current_user = wp_get_current_user();
 				if ( $current_user && $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
 					return true;
 				}
+			}
+			if ( is_wp_error( $auth_status ) ) {
+				return $auth_status;
 			}
 		}
 
@@ -170,16 +205,15 @@ class CapabilityChecker {
 				return true;
 			}
 		} else {
-			// Check for authentication indicators
-			$nonce = $request->get_header( 'X-WP-Nonce' );
-			$auth_header = $request->get_header( 'Authorization' );
-
-			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
-				// Re-check user after potential authentication
+			$auth_status = self::validate_authentication( $request );
+			if ( true === $auth_status ) {
 				$current_user = wp_get_current_user();
 				if ( $current_user && $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
 					return true;
 				}
+			}
+			if ( is_wp_error( $auth_status ) ) {
+				return $auth_status;
 			}
 		}
 
@@ -217,12 +251,8 @@ class CapabilityChecker {
 				return true;
 			}
 		} else {
-			// Check for authentication indicators
-			$nonce = $request->get_header( 'X-WP-Nonce' );
-			$auth_header = $request->get_header( 'Authorization' );
-
-			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
-				// Re-check user after potential authentication
+			$auth_status = self::validate_authentication( $request );
+			if ( true === $auth_status ) {
 				$current_user = wp_get_current_user();
 				if ( $current_user && $current_user->ID > 0 ) {
 					// Admins can always read profiles
@@ -240,6 +270,9 @@ class CapabilityChecker {
 						return true;
 					}
 				}
+			}
+			if ( is_wp_error( $auth_status ) ) {
+				return $auth_status;
 			}
 		}
 
@@ -272,12 +305,8 @@ class CapabilityChecker {
 				return true;
 			}
 		} else {
-			// Check for authentication indicators
-			$nonce = $request->get_header( 'X-WP-Nonce' );
-			$auth_header = $request->get_header( 'Authorization' );
-
-			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
-				// Re-check user after potential authentication
+			$auth_status = self::validate_authentication( $request );
+			if ( true === $auth_status ) {
 				$current_user = wp_get_current_user();
 				if ( $current_user && $current_user->ID > 0 ) {
 					// Admins can always edit profiles
@@ -290,6 +319,9 @@ class CapabilityChecker {
 						return true;
 					}
 				}
+			}
+			if ( is_wp_error( $auth_status ) ) {
+				return $auth_status;
 			}
 		}
 
@@ -327,16 +359,15 @@ class CapabilityChecker {
 				return true;
 			}
 		} else {
-			// Check for authentication indicators
-			$nonce = $request->get_header( 'X-WP-Nonce' );
-			$auth_header = $request->get_header( 'Authorization' );
-
-			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
-				// Re-check user after potential authentication
+			$auth_status = self::validate_authentication( $request );
+			if ( true === $auth_status ) {
 				$current_user = wp_get_current_user();
 				if ( $current_user && $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
 					return true;
 				}
+			}
+			if ( is_wp_error( $auth_status ) ) {
+				return $auth_status;
 			}
 		}
 
@@ -362,16 +393,15 @@ class CapabilityChecker {
 				return true;
 			}
 		} else {
-			// Check for authentication indicators
-			$nonce = $request->get_header( 'X-WP-Nonce' );
-			$auth_header = $request->get_header( 'Authorization' );
-
-			if ( (! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' )) || ! empty( $auth_header ) ) {
-				// Re-check user after potential authentication
+			$auth_status = self::validate_authentication( $request );
+			if ( true === $auth_status ) {
 				$current_user = wp_get_current_user();
 				if ( $current_user && $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
 					return true;
 				}
+			}
+			if ( is_wp_error( $auth_status ) ) {
+				return $auth_status;
 			}
 		}
 
