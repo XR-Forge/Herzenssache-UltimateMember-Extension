@@ -22,16 +22,30 @@ jobs:
           php-version: '8.1'
           extensions: mbstring
 
-      - name: Install Composer dependencies
-        run: composer install --no-dev --no-interaction --prefer-dist
-
       - name: Build plugin package
         run: |
           PACKAGE_NAME="Herzenssache-UltimateMember-Extension"
           OUTPUT_FILE="${PACKAGE_NAME}.zip"
-          rm -f "$OUTPUT_FILE"
-          git archive --format zip --prefix="${PACKAGE_NAME}/" HEAD -o "$OUTPUT_FILE"
-          ls -lh "$OUTPUT_FILE"
+          
+          # Create a temporary directory for the clean package
+          TEMP_DIR=$(mktemp -d)
+          PACKAGE_DIR="$TEMP_DIR/$PACKAGE_NAME"
+          
+          # Copy only the files we want in the package (excluding dev files)
+          mkdir -p "$PACKAGE_DIR"
+          cp herzenssache-ultimate-member.php "$PACKAGE_DIR/"
+          cp -r src "$PACKAGE_DIR/" 2>/dev/null || true
+          cp composer.json "$PACKAGE_DIR/" 2>/dev/null || true
+          
+          # Create the zip file
+          cd "$TEMP_DIR"
+          zip -r "$OUTPUT_FILE" "$PACKAGE_NAME"
+          mv "$OUTPUT_FILE" "$GITHUB_WORKSPACE/"
+          
+          # Cleanup
+          rm -rf "$TEMP_DIR"
+          
+          ls -lh "$GITHUB_WORKSPACE/$OUTPUT_FILE"
 
       - name: Upload package artifact for manual runs
         if: github.event_name == 'workflow_dispatch'
@@ -42,8 +56,6 @@ jobs:
 
       - name: Upload package to GitHub release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: Herzenssache-UltimateMember-Extension.zip
+        run: gh release upload ${{ github.event.release.tag_name }} Herzenssache-UltimateMember-Extension.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
