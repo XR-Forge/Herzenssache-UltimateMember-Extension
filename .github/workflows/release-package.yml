@@ -17,10 +17,10 @@ jobs:
           fetch-depth: 0
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v4
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.1'
-          extension: mbstring
+          extensions: mbstring
 
       - name: Install Composer dependencies
         run: composer install --no-dev --no-interaction --prefer-dist
@@ -35,18 +35,15 @@ jobs:
 
       - name: Upload package artifact for manual runs
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Herzenssache-UltimateMember-Extension-package
           path: Herzenssache-UltimateMember-Extension.zip
 
       - name: Upload package to GitHub release
         if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: Herzenssache-UltimateMember-Extension.zip
-          asset_name: Herzenssache-UltimateMember-Extension-${{ github.event.release.tag_name }}.zip
-          asset_content_type: application/zip
+          files: Herzenssache-UltimateMember-Extension.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
