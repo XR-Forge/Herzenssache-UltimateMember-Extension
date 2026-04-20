@@ -29,10 +29,31 @@ class Router {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Whether routes have been registered.
+	 *
+	 * @var bool
+	 */
+	private static $routes_registered = false;
+
+	/**
+	 * Whether registration has been scheduled for rest_api_init.
+	 *
+	 * @var bool
+	 */
+	private static $routes_scheduled = false;
+
 	public static function register_routes() {
-		// Ensure routes are registered during rest_api_init.
-		if ( ! did_action( 'rest_api_init' ) && ! doing_action( 'rest_api_init' ) ) {
-			add_action( 'rest_api_init', array( __CLASS__, 'register_routes' ) );
+		// Only register routes during the REST API init hook.
+		if ( ! doing_action( 'rest_api_init' ) ) {
+			if ( ! self::$routes_scheduled ) {
+				add_action( 'rest_api_init', array( __CLASS__, 'register_routes' ) );
+				self::$routes_scheduled = true;
+			}
+			return;
+		}
+
+		if ( self::$routes_registered ) {
 			return;
 		}
 
@@ -43,6 +64,8 @@ class Router {
 		Controllers\FormController::register_routes();
 		Controllers\RoleController::register_routes();
 		Controllers\NonceController::register_routes();
+
+		self::$routes_registered = true;
 	}
 
 	/**

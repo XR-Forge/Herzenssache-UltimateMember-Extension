@@ -73,11 +73,6 @@ class Plugin {
 			return;
 		}
 
-		if ( did_action( 'rest_api_init' ) || doing_action( 'rest_api_init' ) ) {
-			API\Router::register_routes();
-			return;
-		}
-
 		add_action( 'rest_api_init', array( API\Router::class, 'register_routes' ) );
 	}
 
