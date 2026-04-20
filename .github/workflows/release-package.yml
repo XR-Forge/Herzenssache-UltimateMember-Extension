@@ -47,15 +47,10 @@ jobs:
           
           ls -lh "$GITHUB_WORKSPACE/$OUTPUT_FILE"
 
-      - name: Upload package artifact for manual runs
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Herzenssache-UltimateMember-Extension-package
-          path: Herzenssache-UltimateMember-Extension.zip
-
       - name: Upload package to GitHub release
         if: github.event_name == 'release'
         run: gh release upload ${{ github.event.release.tag_name }} Herzenssache-UltimateMember-Extension.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
