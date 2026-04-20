@@ -67,10 +67,10 @@ class Plugin {
 	 * @return void
 	 */
 	private function init_rest_api() {
-		// REST API routes will be registered here
-		// This will be handled by the API Router class
-		if ( class_exists( 'Herzenssache\\UltimateMember\\API\\Router' ) ) {
-			API\Router::register_routes();
+		// Register REST API routes on the proper REST init hook.
+		// Routes must be registered during rest_api_init, not during plugins_loaded.
+		if ( class_exists( API\Router::class ) ) {
+			add_action( 'rest_api_init', array( API\Router::class, 'register_routes' ) );
 		}
 	}
 
