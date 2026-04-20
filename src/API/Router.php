@@ -43,6 +43,13 @@ class Router {
 	 */
 	private static $routes_scheduled = false;
 
+	/**
+	 * Re-entrancy guard for determine_current_user filter.
+	 *
+	 * @var bool
+	 */
+	private static $determining_user = false;
+
 	public static function register_routes() {
 		// Only register routes during the REST API init hook.
 		if ( ! doing_action( 'rest_api_init' ) ) {
@@ -75,25 +82,37 @@ class Router {
 	 * @return int|false User ID or false
 	 */
 	public static function determine_current_user_from_request( $user_id ) {
-		// If user is already determined, return it
+		// If user is already determined, return it.
 		if ( false !== $user_id ) {
 			return $user_id;
 		}
 
-		// Try to determine user from WordPress session/cookies
-		if ( is_user_logged_in() ) {
-			return get_current_user_id();
+		// Only run this helper for REST requests.
+		if ( ! defined( 'REST_REQUEST' ) || ! REST_REQUEST ) {
+			return $user_id;
 		}
 
-		// Try manual cookie validation as fallback
-		if ( defined( 'LOGGED_IN_COOKIE' ) && isset( $_COOKIE[LOGGED_IN_COOKIE] ) ) {
-			$user_id = wp_validate_auth_cookie( $_COOKIE[LOGGED_IN_COOKIE], 'logged_in' );
-			if ( $user_id ) {
-				return $user_id;
+		// Avoid recursive calls from auth helpers that internally resolve current user.
+		if ( self::$determining_user ) {
+			return false;
+		}
+
+		self::$determining_user = true;
+
+		try {
+			// Determine user directly from auth cookie. Do not call is_user_logged_in()
+			// or get_current_user_id() here because both can re-enter determine_current_user.
+			if ( defined( 'LOGGED_IN_COOKIE' ) && ! empty( $_COOKIE[LOGGED_IN_COOKIE] ) ) {
+				$validated_user_id = wp_validate_auth_cookie( $_COOKIE[LOGGED_IN_COOKIE], 'logged_in' );
+				if ( $validated_user_id ) {
+					return (int) $validated_user_id;
+				}
 			}
-		}
 
-		return false;
+			return false;
+		} finally {
+			self::$determining_user = false;
+		}
 	}
 
 	/**
