@@ -55,6 +55,9 @@ class Plugin {
 		// Load text domain for translations
 		load_plugin_textdomain( 'herzenssache-um', false, plugin_basename( HZS_UM_PLUGIN_DIR ) . '/languages' );
 
+		// Initialize REST API authentication early
+		add_filter( 'determine_current_user', array( API\Router::class, 'determine_current_user_from_request' ), 10, 1 );
+
 		// Initialize components
 		$this->init_rest_api();
 		$this->init_admin();

@@ -44,6 +44,35 @@ class CapabilityChecker {
 	const CAP_MANAGE_FORMS = 'manage_options';
 
 	/**
+	 * Ensure user is authenticated for REST API requests
+	 *
+	 * @param WP_REST_Request $request The REST request.
+	 * @return bool Whether user is authenticated
+	 */
+	private static function ensure_rest_authentication( WP_REST_Request $request ) {
+		// First check if user is already authenticated
+		if ( is_user_logged_in() ) {
+			return true;
+		}
+
+		// Check for valid nonce in header
+		$nonce = $request->get_header( 'X-WP-Nonce' );
+		if ( ! empty( $nonce ) && wp_verify_nonce( $nonce, 'wp_rest' ) ) {
+			// Nonce is valid, ensure user is logged in
+			return is_user_logged_in();
+		}
+
+		// Check for JWT authentication
+		$auth_header = $request->get_header( 'Authorization' );
+		if ( ! empty( $auth_header ) ) {
+			// JWT validation is handled by JwtValidator
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
 	 * Check if current user can read user data
 	 *
 	 * @param WP_REST_Request $request The REST request.
@@ -51,6 +80,15 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_read_users( WP_REST_Request $request, $user_id = null ) {
+		// Ensure authentication
+		if ( ! self::ensure_rest_authentication( $request ) ) {
+			return new WP_Error(
+				'unauthenticated',
+				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
+				array( 'status' => 401 )
+			);
+		}
+
 		// Get current user
 		$current_user = wp_get_current_user();
 
@@ -88,6 +126,15 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_manage_users( WP_REST_Request $request ) {
+		// Ensure authentication
+		if ( ! self::ensure_rest_authentication( $request ) ) {
+			return new WP_Error(
+				'unauthenticated',
+				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
+				array( 'status' => 401 )
+			);
+		}
+
 		$current_user = wp_get_current_user();
 
 		if ( $current_user->has_cap( self::CAP_MANAGE_USERS ) ) {
@@ -126,6 +173,15 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_manage_forms( WP_REST_Request $request ) {
+		// Ensure authentication
+		if ( ! self::ensure_rest_authentication( $request ) ) {
+			return new WP_Error(
+				'unauthenticated',
+				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
+				array( 'status' => 401 )
+			);
+		}
+
 		$current_user = wp_get_current_user();
 
 		if ( $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
@@ -147,6 +203,15 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_read_profile( WP_REST_Request $request, $user_id ) {
+		// Ensure authentication
+		if ( ! self::ensure_rest_authentication( $request ) ) {
+			return new WP_Error(
+				'unauthenticated',
+				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
+				array( 'status' => 401 )
+			);
+		}
+
 		$current_user = wp_get_current_user();
 
 		// Admins can always read profiles
@@ -179,6 +244,15 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_edit_profile( WP_REST_Request $request, $user_id ) {
+		// Ensure authentication
+		if ( ! self::ensure_rest_authentication( $request ) ) {
+			return new WP_Error(
+				'unauthenticated',
+				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
+				array( 'status' => 401 )
+			);
+		}
+
 		$current_user = wp_get_current_user();
 
 		// Admins can always edit profiles
@@ -216,6 +290,15 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_read_submissions( WP_REST_Request $request ) {
+		// Ensure authentication
+		if ( ! self::ensure_rest_authentication( $request ) ) {
+			return new WP_Error(
+				'unauthenticated',
+				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
+				array( 'status' => 401 )
+			);
+		}
+
 		$current_user = wp_get_current_user();
 
 		// Admins can always read submissions
@@ -237,6 +320,15 @@ class CapabilityChecker {
 	 * @return bool|WP_Error True if allowed, WP_Error if not
 	 */
 	public static function can_manage_submissions( WP_REST_Request $request ) {
+		// Ensure authentication
+		if ( ! self::ensure_rest_authentication( $request ) ) {
+			return new WP_Error(
+				'unauthenticated',
+				__( 'You must be logged in to access this endpoint', 'herzenssache-um' ),
+				array( 'status' => 401 )
+			);
+		}
+
 		$current_user = wp_get_current_user();
 
 		if ( $current_user->has_cap( self::CAP_MANAGE_FORMS ) ) {
@@ -244,6 +336,11 @@ class CapabilityChecker {
 		}
 
 		return new WP_Error(
+			'insufficient_permissions',
+			__( 'You do not have permission to manage form submissions', 'herzenssache-um' ),
+			array( 'status' => 403 )
+		);
+	}
 			'insufficient_permissions',
 			__( 'You do not have permission to manage form submissions', 'herzenssache-um' ),
 			array( 'status' => 403 )

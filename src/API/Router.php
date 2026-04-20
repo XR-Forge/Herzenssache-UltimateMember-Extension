@@ -53,9 +53,6 @@ class Router {
 			return;
 		}
 
-		// Ensure WordPress REST API cookie authentication is enabled
-		add_filter( 'determine_current_user', array( __CLASS__, 'determine_current_user_from_request' ), 10, 1 );
-
 		if ( self::$routes_registered ) {
 			return;
 		}
