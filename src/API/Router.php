@@ -30,6 +30,12 @@ class Router {
 	 * @return void
 	 */
 	public static function register_routes() {
+		// Ensure routes are registered during rest_api_init.
+		if ( ! did_action( 'rest_api_init' ) && ! doing_action( 'rest_api_init' ) ) {
+			add_action( 'rest_api_init', array( __CLASS__, 'register_routes' ) );
+			return;
+		}
+
 		// Register endpoint classes
 		Controllers\UserController::register_routes();
 		Controllers\ProfileController::register_routes();
