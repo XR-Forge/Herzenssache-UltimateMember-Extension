@@ -64,7 +64,12 @@ class CapabilityChecker {
 			return true;
 		}
 
-		// Subscribers with list_users capability can read users
+		// Allow any authenticated user to access /users so they can retrieve their own profile.
+		if ( $current_user->ID > 0 ) {
+			return true;
+		}
+
+		// Subscribers with list_users capability can read all users
 		if ( $current_user->has_cap( self::CAP_READ_USERS ) ) {
 			return true;
 		}

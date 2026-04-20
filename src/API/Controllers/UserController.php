@@ -78,6 +78,8 @@ class UserController {
 	 * @return WP_REST_Response
 	 */
 	public static function get_users( WP_REST_Request $request ) {
+		$current_user = wp_get_current_user();
+
 		// Get pagination parameters
 		$pagination = RequestValidator::validate_pagination( $request );
 
@@ -85,7 +87,39 @@ class UserController {
 		$role = $request->get_param( 'role' );
 		$search = $request->get_param( 'search' );
 
-		// Fetch users
+		// Non-admins without list_users are only allowed to retrieve their own profile.
+		if ( $current_user->ID > 0 && ! $current_user->has_cap( CapabilityChecker::CAP_READ_USERS ) && ! $current_user->has_cap( CapabilityChecker::CAP_MANAGE_USERS ) ) {
+			$user = UserRepository::get_user( $current_user->ID );
+			if ( is_wp_error( $user ) ) {
+				return ResponseFormatter::from_wp_error( $user );
+			}
+
+			// Apply optional query filters to the current user.
+			if ( ! empty( $role ) && ! in_array( sanitize_text_field( $role ), $current_user->roles, true ) ) {
+				return ResponseFormatter::paginated( array(), 0, $pagination['page'], $pagination['per_page'], 'users' );
+			}
+
+			if ( ! empty( $search ) ) {
+				$search_value = sanitize_text_field( $search );
+				$user_matches = false;
+
+				if ( false !== stripos( $current_user->user_login, $search_value ) || false !== stripos( $current_user->user_email, $search_value ) || false !== stripos( $current_user->display_name, $search_value ) ) {
+					$user_matches = true;
+				}
+
+				if ( ! $user_matches ) {
+					return ResponseFormatter::paginated( array(), 0, $pagination['page'], $pagination['per_page'], 'users' );
+				}
+			}
+
+			if ( 1 !== $pagination['page'] ) {
+				return ResponseFormatter::paginated( array(), 1, $pagination['page'], $pagination['per_page'], 'users' );
+			}
+
+			return ResponseFormatter::paginated( array( $user ), 1, $pagination['page'], $pagination['per_page'], 'users' );
+		}
+
+		// Fetch users for admins and list_users-capable accounts.
 		$result = UserRepository::get_users(
 			$pagination['page'],
 			$pagination['per_page'],
@@ -93,7 +127,6 @@ class UserController {
 			$search
 		);
 
-		// Return paginated response
 		return ResponseFormatter::paginated(
 			$result['users'],
 			$result['total'],

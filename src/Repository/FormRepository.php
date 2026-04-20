@@ -8,7 +8,7 @@
 namespace Herzenssache\UltimateMember\Repository;
 
 use WP_Post;
-use WP_Post_Query;
+use WP_Query;
 use WP_Error;
 
 /**
@@ -31,7 +31,7 @@ class FormRepository {
 			'post_status' => array( 'publish', 'draft' ),
 		);
 
-		$query = new WP_Post_Query( $args );
+		$query = new WP_Query( $args );
 
 		if ( ! empty( $query->posts ) ) {
 			foreach ( $query->posts as $form_post ) {
@@ -106,7 +106,7 @@ class FormRepository {
 			);
 		}
 
-		$query = new WP_Post_Query( $args );
+		$query = new WP_Query( $args );
 
 		$submissions = array();
 		if ( ! empty( $query->posts ) ) {
