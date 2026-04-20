@@ -5,12 +5,13 @@ A comprehensive WordPress plugin that exposes [UltimateMember](https://www.ultim
 ## Features
 
 - **Complete REST API**: All UltimateMember resources (Users, Profiles, Fields, Forms, Submissions, Roles)
-- **Dual Authentication**: WordPress nonce (for logged-in users) + JWT tokens (for external apps)
+- **Flexible Authentication**: WordPress session cookies (automatic), nonce headers, and JWT tokens
 - **Admin Dashboard**: Read-only monitoring dashboard with statistics, recent submissions, user activity, and role overview
 - **Full CRUD Operations**: Create, read, update, and delete users, manage form submissions, and more
 - **Granular Permissions**: Fine-grained capability checks for all endpoints
 - **Pagination & Filtering**: Built-in support for paginated results and filtering
 - **Error Handling**: Standardized error responses matching the API specification
+- **Session Recognition**: Automatically detects logged-in WordPress users via cookies
 
 ## Requirements
 
@@ -228,16 +229,25 @@ GET /wp-json/um/v1/roles/{role_id}
 
 ## Authentication Methods
 
-### WordPress Nonce (For Logged-In Users)
+### WordPress Session Authentication (Recommended)
 
-Include the nonce in the `X-WP-Nonce` header:
+For logged-in WordPress users, the API automatically recognizes your session via cookies. Simply make requests while logged into WordPress - no additional headers required:
+
+```bash
+curl -X GET https://yoursite.com/wp-json/um/v1/users \
+  --cookie "wordpress_logged_in=YOUR_SESSION_COOKIE"
+```
+
+### WordPress Nonce Authentication
+
+Include the nonce in the `X-WP-Nonce` header for additional security:
 
 ```bash
 curl -X GET https://yoursite.com/wp-json/um/v1/users \
   -H "X-WP-Nonce: YOUR_NONCE_VALUE"
 ```
 
-### JWT Bearer Token (For External Apps)
+### JWT Bearer Token Authentication (For External Apps)
 
 1. First, enable JWT in wp-config.php (see Configuration section)
 2. Include token in the `Authorization` header:
@@ -371,9 +381,11 @@ composer lint-fix
 
 ### Authentication fails
 
-- For nonce auth: Get a fresh nonce from `/wp-json/um/v1/nonce` while logged in
-- For JWT auth: Verify `HZS_UM_JWT_SECRET` is defined in wp-config.php
-- Check that tokens haven't expired (7-day lifetime)
+- **For session auth**: Ensure you're logged into WordPress in the same browser/session
+- **For nonce auth**: Get a fresh nonce from `/wp-json/um/v1/nonce` while logged in
+- **For JWT auth**: Verify `HZS_UM_JWT_SECRET` is defined in wp-config.php
+- **401 "unauthenticated" errors**: Try clearing browser cookies or re-logging in
+- Check that tokens haven't expired (7-day lifetime for JWT)
 
 ### UltimateMember not detected
 
@@ -382,9 +394,16 @@ composer lint-fix
 
 ### Permission denied errors
 
-- Verify user has required capabilities in WordPress
+- **403 "insufficient_permissions"**: Verify user has required capabilities in WordPress
 - Admin users (`manage_options`) have full access
 - Non-admin users need explicit capabilities assigned
+- For `/users` endpoint: Logged-in users can access their own profile data
+
+### Dashboard errors or crashes
+
+- **Fatal errors in admin**: Ensure Ultimate Member plugin is up to date
+- **Query errors**: Plugin automatically handles WordPress query compatibility
+- **Permission issues**: Admin users should have access to UM REST API dashboard
 
 ## License
 
@@ -397,9 +416,35 @@ https://github.com/XR-Forge/Herzenssache-UltimateMember-Extension
 
 ## Changelog
 
-### Version 1.0.0 (Initial Release)
+### Version 1.0.5-alpha (Bug-Fix Release)
 
-- Initial release with full API implementation
+- Fixed authentication issues for REST API endpoints
+- Improved session cookie recognition for logged-in users
+
+### Version 1.0.4-alpha (Bug-Fix Release)
+
+- Fixed retrieving user data via REST API
+- Enhanced user data access permissions
+
+### Version 1.0.3-alpha (Bug-Fix Release)
+
+- Fixed session management for WordPress REST API
+- Improved user data retrieval functionality
+
+### Version 1.0.2-alpha (Bug-Fix Release)
+
+- Fixed session management issues
+- Enhanced authentication handling
+
+### Version 1.0.1-alpha (Bug-Fix Release)
+
+- Fixed admin section errors and crashes
+- Improved login functionality
+- Resolved dashboard compatibility issues
+
+### Version 1.0.0-alpha (Initial Release)
+
+- Initial alpha release with full API implementation
 - WordPress nonce and JWT authentication
 - Admin monitoring dashboard
 - Complete user, profile, form, field, and role management
