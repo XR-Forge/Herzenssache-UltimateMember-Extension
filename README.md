@@ -2,6 +2,10 @@
 
 A comprehensive WordPress plugin that exposes [UltimateMember](https://www.ultimatemember.com/) membership data via a fully-featured REST API. Supports both WordPress nonce and JWT authentication for maximum flexibility.
 
+## Development Notice
+
+This project was developed with the assistance of AI tools. Design, implementation, and documentation were reviewed and refined as part of the development process.
+
 ## Features
 
 - **Complete REST API**: All UltimateMember resources (Users, Profiles, Fields, Forms, Submissions, Roles)
